@@ -61,16 +61,17 @@
 #define M1_POLES_PAIRS    15    //15 pole pairs (30 magnets) hoverboard Motor (27N30P)
 #define M2_POLES_PAIRS    15    //30 magnets hoverboard Motor
 
-#define POWER_SUPPLY      24    //tensão de alimentação dos motores [V]
-#define VOLTAGE_LIMIT     12    //tensão maxima que o motor pode receber [V] - (default = power_supply)
+#define POWER_SUPPLY      12    //tensão de alimentação dos motores [V]
+#define VOLTAGE_LIMIT      6    //tensão maxima que o motor pode receber [V] - (default = power_supply)
 #define PWM_FREQUENCY  20000    //pwm frequency to be used [Hz]
 #define FAIL_SAFE_TIME  2000    //milisegundos para parar o robo em comandos
 
 
-int velocidade = 2;                     //velocidade radianos/segundo
+float velocidade = 2.0;                     //velocidade radianos/segundo
 char comando;
 boolean confirmRequestPending = true;
 unsigned long failSafeTimer = 0;        //usado para calcular tempo do failsafe
+unsigned long timer = 0;        //usado para prints no serial
 
 
 //Instanciando objetos ---------------------------------------
@@ -82,7 +83,7 @@ BLDCMotor motorM1 = BLDCMotor(M1_POLES_PAIRS, 0.17);                            
 
 HallSensor sensorM2 = HallSensor(M2_HALL_A_PIN, M2_HALL_B_PIN, M2_HALL_C_PIN, M2_POLES_PAIRS);       //(pinA,pinB,pinC, pole pairs)
 BLDCDriver3PWM driverM2 = BLDCDriver3PWM(M2_PWM_A_PIN, M2_PWM_B_PIN, M2_PWM_C_PIN, M2_ENABLE_PIN);   //BLDCDriver3PWM( pin_pwmA, pin_pwmB, pin_pwmC, enable (optional))
-BLDCMotor motorM2 = BLDCMotor(M2_POLES_PAIRS, 0.17);                                                 //BLDCMotor( pole_pairs , ( phase_resistance, KV_rating  optional) )
+BLDCMotor motorM2 = BLDCMotor(M2_POLES_PAIRS);                                                 //BLDCMotor( pole_pairs , ( phase_resistance, KV_rating  optional) )
 
 //Callback Interrupçoes---------------------------------------
 void doA_M1(){sensorM1.handleA();}
@@ -93,19 +94,30 @@ void doA_M2(){sensorM2.handleA();}
 void doB_M2(){sensorM2.handleB();}
 void doC_M2(){sensorM2.handleC();}
 
+//void onPid(char* cmd){ commander.pid(&pid,cmd); }
+
 void setup() {
   Serial.begin(115200);
   pinMode(RELE_PIN,OUTPUT);
+  //pinMode(M2_HALL_A_PIN,INPUT_PULLUP);
+  //pinMode(M2_HALL_B_PIN,INPUT_PULLUP);
+  //pinMode(M2_HALL_C_PIN,INPUT_PULLUP);
   rele(LOW); //desliga rele
-  
+  //commander.add('C',onPid,"my pid");
   inicializaMotores();
   inicializaBluetooth();
 }
 
 void loop() {
-  motorM1.loopFOC();                //FOC algorithm execution - should be executed as fast as possible > 1Khz
-  motorM1.monitor();
-  //motorM1.move(2);                // setting the target velocity or 2rad/s
+  //motorM1.loopFOC();                //FOC algorithm execution - should be executed as fast as possible > 1Khz
+  //motorM1.monitor()
+  motorM2.loopFOC();                //FOC algorithm execution - should be executed as fast as possible > 1Khz
+  //motorM2.monitor();
+  //motorM2.move(velocidade);                // setting the target velocity or 2rad/s
+  //Serial.print(sensorM2.getAngle());
+  //Serial.print("\t");
+  //Serial.println(sensorM2.getVelocity());
+  //commander.run();
   
   if (Serial.available()) {
     SerialBT.write(Serial.read());
@@ -140,6 +152,10 @@ void loop() {
  //testa se passou muito tempo desde ultimo comando "mover"
  if(millis() - failSafeTimer  > FAIL_SAFE_TIME){
    mover(0,0);//parado
+   }
+ if(millis() - timer  > 20){
+      Serial.println(sensorM2.getVelocity());
+      timer = millis();
    }
  //delay(20);
 }
